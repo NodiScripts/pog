@@ -1,4 +1,4 @@
--- Untitled Simulator: Pog + Halloween Tier 6 auto-opener
+-- Untitled Simulator: Pog + Halloween Tier 6 + Halloween Tier 4 auto-opener
 -- Uses captured purchase calls; spends normal game currency.
 -- Untested in-game. No overlapping requests or cooldown bypass.
 local Players = game:GetService("Players")
@@ -28,23 +28,23 @@ gui.DisplayOrder = 10000
 local frame = Instance.new("Frame")
 frame.AnchorPoint = Vector2.new(0.5, 0.5)
 frame.Position = UDim2.fromScale(0.5, 0.5)
-frame.Size = UDim2.new(0.9, 0, 0, 265)
+frame.Size = UDim2.new(0.9, 0, 0, 310)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
 frame.Parent = gui
 local limit = Instance.new("UISizeConstraint")
-limit.MaxSize = Vector2.new(390, 265)
+limit.MaxSize = Vector2.new(390, 310)
 limit.Parent = frame
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 40)
 title.BackgroundColor3 = Color3.fromRGB(60, 40, 85)
 title.TextColor3 = Color3.new(1, 1, 1)
 title.TextSize = 16
-title.Text = "Pog / Halloween Tier 6 - drag here"
+title.Text = "Pog / Halloween Eggs - drag here"
 title.Active = true
 title.Parent = frame
 local status = Instance.new("TextLabel")
 status.Size = UDim2.new(1, -16, 0, 65)
-status.Position = UDim2.fromOffset(8, 94)
+status.Position = UDim2.fromOffset(8, 139)
 status.BackgroundTransparency = 1
 status.TextColor3 = Color3.new(1, 1, 1)
 status.TextSize = 14
@@ -64,11 +64,12 @@ local function button(text, x, y)
 end
 local pog = button("Pog", 0, 48)
 local halloween = button("Halloween Tier 6", 0.5, 48)
-local toggle = button("Start purchases", 0, 166)
-local close = button("Close", 0.5, 166)
+local tier4 = button("Halloween Tier 4", 0, 93)
+local toggle = button("Start purchases", 0, 211)
+local close = button("Close", 0.5, 211)
 local note = Instance.new("TextLabel")
 note.Size = UDim2.new(1, -16, 0, 45)
-note.Position = UDim2.fromOffset(8, 211)
+note.Position = UDim2.fromOffset(8, 256)
 note.BackgroundTransparency = 1
 note.TextColor3 = Color3.fromRGB(190, 190, 205)
 note.TextSize = 12
@@ -87,6 +88,7 @@ local function selectEgg(name)
 end
 pog.Activated:Connect(function() selectEgg("Pog") end)
 halloween.Activated:Connect(function() selectEgg("Halloween Tier 6") end)
+tier4.Activated:Connect(function() selectEgg("Halloween Tier 4") end)
 toggle.Activated:Connect(function()
     if running then
         running = false
