@@ -1,206 +1,146 @@
--- Untitled Simulator: Pog Egg auto-opener
--- Repeats the exact request captured from your manual hatch.
--- Uses normal currency and server-side eligibility checks.
--- No overlapping requests.
-
+-- Untitled Simulator: Pog + Halloween Tier 6 auto-opener
+-- Uses captured purchase calls; spends normal game currency.
+-- Untested in-game. No overlapping requests or cooldown bypass.
 local Players = game:GetService("Players")
-
-assert(
-    game.PlaceId == 110473356042040,
-    "Run this in Untitled Simulator."
-)
-
+local UIS = game:GetService("UserInputService")
+assert(game.PlaceId == 110473356042040, "Run this in Untitled Simulator.")
 local player = Players.LocalPlayer
 assert(player, "Run this on the client.")
-
-local playerGui = player:WaitForChild("PlayerGui")
-
--- Prevent duplicate copies from running simultaneously.
-local GUI_NAME = "NodiPogAutoOpener"
-
-assert(
-    not playerGui:FindFirstChild(GUI_NAME),
-    "Pog auto-opener is already loaded. Use its existing controls."
-)
-
+local pg = player:WaitForChild("PlayerGui")
+local NAME = "NodiPogAutoOpener"
+assert(not pg:FindFirstChild(NAME), "Close the existing opener before loading this version.")
 local remotes = workspace:WaitForChild("__REMOTES", 10)
 assert(remotes, "__REMOTES not found.")
-
-local gameRemotes = remotes:WaitForChild("Game", 10)
-assert(gameRemotes, "Game remotes not found.")
-
-local shop = gameRemotes:WaitForChild("Shop", 10)
-assert(
-    shop and shop:IsA("RemoteFunction"),
-    "Shop RemoteFunction not found."
-)
-
+local folder = remotes:WaitForChild("Game", 10)
+assert(folder, "Game remotes not found.")
+local shop = folder:WaitForChild("Shop", 10)
+assert(shop and shop:IsA("RemoteFunction"), "Shop RemoteFunction not found.")
 local DELAY_AFTER_RESPONSE = 0.005
-local CAPTURED_AMOUNT = 8
-
-local running = false
-local busy = false
-local alive = true
-local completedCalls = 0
-
+local AMOUNT = 8
+local selected = "Pog"
+local running, busy, alive = false, false, true
+local completed = 0
+local connections = {}
 local gui = Instance.new("ScreenGui")
-gui.Name = GUI_NAME
+gui.Name = NAME
 gui.ResetOnSpawn = false
-gui.Parent = playerGui
-
+gui.DisplayOrder = 10000
 local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(310, 190)
-frame.Position = UDim2.new(0.5, -155, 0.5, -95)
+frame.AnchorPoint = Vector2.new(0.5, 0.5)
+frame.Position = UDim2.fromScale(0.5, 0.5)
+frame.Size = UDim2.new(0.9, 0, 0, 265)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
 frame.Parent = gui
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = frame
-
+local limit = Instance.new("UISizeConstraint")
+limit.MaxSize = Vector2.new(390, 265)
+limit.Parent = frame
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -16, 0, 36)
-title.Position = UDim2.fromOffset(8, 4)
-title.BackgroundTransparency = 1
-title.Text = "Pog Egg Auto-Opener"
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundColor3 = Color3.fromRGB(60, 40, 85)
 title.TextColor3 = Color3.new(1, 1, 1)
-title.TextSize = 19
+title.TextSize = 16
+title.Text = "Pog / Halloween Tier 6 - drag here"
+title.Active = true
 title.Parent = frame
-
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, -20, 0, 62)
-status.Position = UDim2.fromOffset(10, 40)
+status.Size = UDim2.new(1, -16, 0, 65)
+status.Position = UDim2.fromOffset(8, 94)
 status.BackgroundTransparency = 1
-status.TextWrapped = true
-status.Text = "Stopped. Starting will repeatedly spend MoonCoins."
-status.TextColor3 = Color3.fromRGB(220, 220, 230)
+status.TextColor3 = Color3.new(1, 1, 1)
 status.TextSize = 14
+status.TextWrapped = true
+status.Text = "Selected: Pog. Starting repeatedly spends game currency."
 status.Parent = frame
-
-local toggle = Instance.new("TextButton")
-toggle.Size = UDim2.fromOffset(180, 38)
-toggle.Position = UDim2.fromOffset(10, 115)
-toggle.BackgroundColor3 = Color3.fromRGB(45, 125, 80)
-toggle.TextColor3 = Color3.new(1, 1, 1)
-toggle.TextSize = 16
-toggle.Text = "Start purchases"
-toggle.Parent = frame
-
-local close = Instance.new("TextButton")
-close.Size = UDim2.fromOffset(100, 38)
-close.Position = UDim2.fromOffset(200, 115)
-close.BackgroundColor3 = Color3.fromRGB(110, 45, 50)
-close.TextColor3 = Color3.new(1, 1, 1)
-close.TextSize = 16
-close.Text = "Close"
-close.Parent = frame
-
+local function button(text, x, y)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.5, -12, 0, 38)
+    b.Position = UDim2.new(x, 6, 0, y)
+    b.BackgroundColor3 = Color3.fromRGB(65, 65, 95)
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.TextSize = 14
+    b.Text = text
+    b.Parent = frame
+    return b
+end
+local pog = button("Pog", 0, 48)
+local halloween = button("Halloween Tier 6", 0.5, 48)
+local toggle = button("Start purchases", 0, 166)
+local close = button("Close", 0.5, 166)
 local note = Instance.new("TextLabel")
-note.Size = UDim2.new(1, -16, 0, 26)
-note.Position = UDim2.fromOffset(8, 158)
+note.Size = UDim2.new(1, -16, 0, 45)
+note.Position = UDim2.fromOffset(8, 211)
 note.BackgroundTransparency = 1
-note.Text = "Stop cannot undo an already-sent purchase."
-note.TextColor3 = Color3.fromRGB(190, 190, 200)
+note.TextColor3 = Color3.fromRGB(190, 190, 205)
 note.TextSize = 12
+note.TextWrapped = true
+note.Text = "Stop before switching eggs. Stop cannot undo a sent purchase. Counts are returned requests, not verified hatches."
 note.Parent = frame
-
-local function setStatus(text)
-    if alive then
-        status.Text = text
-    end
+local function setStatus(text) if alive then status.Text = text end end
+local function refresh()
+    if alive then toggle.Text = running and "Stop" or busy and "Stopping..." or "Start purchases" end
 end
-
-local function refreshButton()
-    if not alive then
-        return
-    end
-
-    if running then
-        toggle.Text = "Stop"
-    elseif busy then
-        toggle.Text = "Stopping..."
-    else
-        toggle.Text = "Start purchases"
-    end
+local function selectEgg(name)
+    if busy then setStatus("Stop and wait for the current request before switching eggs.") return end
+    selected = name
+    completed = 0
+    setStatus("Selected: " .. name .. ". Starting repeatedly spends game currency.")
 end
-
+pog.Activated:Connect(function() selectEgg("Pog") end)
+halloween.Activated:Connect(function() selectEgg("Halloween Tier 6") end)
 toggle.Activated:Connect(function()
     if running then
         running = false
         setStatus("Stopping after the current request returns.")
-        refreshButton()
+        refresh()
         return
     end
-
-    if busy or not alive then
-        return
-    end
-
-    running = true
-    busy = true
-    refreshButton()
-
+    if busy or not alive then return end
+    running, busy = true, true
+    local egg = selected
+    refresh()
     task.spawn(function()
+        local failure
         while alive and running do
-            setStatus(
-                "Opening Pog eggs...\nCompleted requests: "
-                .. completedCalls
-            )
-
-            local results = table.pack(pcall(function()
-                return shop:InvokeServer(
-                    "Buy",
-                    "Eggs",
-                    "Pog",
-                    CAPTURED_AMOUNT
-                )
-            end))
-
-            if not results[1] then
+            setStatus("Opening: " .. egg .. "\nCompleted requests: " .. completed)
+            local ok, result = pcall(function()
+                return shop:InvokeServer("Buy", "Eggs", egg, AMOUNT)
+            end)
+            if not ok then failure = "Request error: " .. tostring(result) running = false break end
+            if result == false then
+                failure = "Server rejected the request. Check currency, space, unlocks, or cooldown."
                 running = false
-                setStatus("Request error: " .. tostring(results[2]))
                 break
             end
-
-            -- Stop on an explicit rejection.
-            -- Other return formats have not been verified.
-            if results[2] == false then
-                running = false
-                setStatus(
-                    "Server rejected the request. Check currency, "
-                    .. "inventory space, unlocks, or cooldown."
-                )
-                break
-            end
-
-            completedCalls = completedCalls + 1
-
-            if not running or not alive then
-                break
-            end
-
-            task.wait(DELAY_AFTER_RESPONSE)
+            completed = completed + 1
+            if alive and running then task.wait(DELAY_AFTER_RESPONSE) end
         end
-
         busy = false
-
-        if alive then
-            refreshButton()
-
-            if status.Text == "Stopping after the current request returns." then
-                setStatus(
-                    "Stopped.\nCompleted requests: " .. completedCalls
-                )
-            end
-        end
+        refresh()
+        setStatus(failure or ("Stopped: " .. egg .. "\nCompleted requests: " .. completed))
     end)
 end)
-
+local dragging, touch, inputStart, positionStart
+connections[#connections + 1] = title.InputBegan:Connect(function(input)
+    local mouse = input.UserInputType == Enum.UserInputType.MouseButton1
+    local isTouch = input.UserInputType == Enum.UserInputType.Touch
+    if dragging or not (mouse or isTouch) then return end
+    dragging = true
+    touch = isTouch and input or nil
+    inputStart, positionStart = input.Position, frame.Position
+end)
+connections[#connections + 1] = UIS.InputChanged:Connect(function(input)
+    if not dragging then return end
+    if (not touch and input.UserInputType == Enum.UserInputType.MouseMovement) or input == touch then
+        local delta = input.Position - inputStart
+        frame.Position = UDim2.new(positionStart.X.Scale, positionStart.X.Offset + delta.X, positionStart.Y.Scale, positionStart.Y.Offset + delta.Y)
+    end
+end)
+connections[#connections + 1] = UIS.InputEnded:Connect(function(input)
+    if input == touch or (not touch and input.UserInputType == Enum.UserInputType.MouseButton1) then dragging, touch = false, nil end
+end)
+close.Activated:Connect(function() gui:Destroy() end)
 gui.Destroying:Connect(function()
-    alive = false
-    running = false
+    alive, running = false, false
+    for _, connection in ipairs(connections) do connection:Disconnect() end
 end)
-
-close.Activated:Connect(function()
-    gui:Destroy()
-end)
+gui.Parent = pg
